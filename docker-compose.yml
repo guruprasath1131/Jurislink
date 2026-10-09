@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: jurislink-db
+    environment:
+      POSTGRES_USER: jurislink
+      POSTGRES_PASSWORD: jurislink_secret
+      POSTGRES_DB: jurislink_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jurislink -d jurislink_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: jurislink-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://jurislink:jurislink_secret@db:5432/jurislink_db
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  jurislink-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jurislink-web
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
