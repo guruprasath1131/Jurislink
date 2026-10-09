@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from .database import engine, Base
 from .seed import seed_database
-from .routers import cases, reminders, ivr, nlp
+from .routers import cases, reminders, ivr, nlp, ai
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +38,7 @@ app.include_router(cases.router, prefix="/api")
 app.include_router(reminders.router, prefix="/api")
 app.include_router(ivr.router, prefix="/api")
 app.include_router(nlp.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 @app.get("/api/health", tags=["Health"])
 def health_check():
