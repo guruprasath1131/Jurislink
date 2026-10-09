@@ -34,6 +34,10 @@ function setCorsHeaders(res) {
 }
 
 function parseJsonBody(req) {
+  if (req.body) {
+    if (typeof req.body === 'object') return Promise.resolve(req.body);
+    try { return Promise.resolve(JSON.parse(req.body)); } catch { return Promise.resolve({}); }
+  }
   return new Promise((resolve) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
@@ -44,10 +48,11 @@ function parseJsonBody(req) {
         resolve({});
       }
     });
+    req.on('error', () => resolve({}));
   });
 }
 
-const server = http.createServer(async (req, res) => {
+export async function handleRequest(req, res) {
   setCorsHeaders(res);
 
   if (req.method === 'OPTIONS') {
@@ -56,7 +61,8 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const host = req.headers.host || 'localhost';
+  const url = new URL(req.url, `http://${host}`);
   const pathname = url.pathname;
 
   // 1. Health Check
@@ -355,10 +361,21 @@ const server = http.createServer(async (req, res) => {
 
   res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Endpoint not found' }));
-});
+}
 
-server.listen(PORT, () => {
-  console.log(`🚀 Jurislink Backend Server & Database active at http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
-  console.log(`   Cases API   : http://localhost:${PORT}/api/cases`);
-});
+export const server = http.createServer(handleRequest);
+
+const isMainModule = Boolean(
+  process.argv[1] && (
+    process.argv[1].endsWith('server/index.js') || 
+    process.argv[1].endsWith('server\\index.js')
+  )
+);
+
+if (isMainModule) {
+  server.listen(PORT, () => {
+    console.log(`🚀 Jurislink Backend Server & Database active at http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+    console.log(`   Cases API   : http://localhost:${PORT}/api/cases`);
+  });
+}

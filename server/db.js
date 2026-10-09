@@ -1,4 +1,3 @@
-import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -6,11 +5,36 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DB_PATH = path.resolve(__dirname, '../jurislink.db');
 
-export const db = new DatabaseSync(DB_PATH);
+let sqliteMod = null;
+try {
+  sqliteMod = await import('node:sqlite');
+} catch {
+  console.warn('[SQLite] node:sqlite module not present in this runtime');
+}
+
+let dbInstance = null;
+if (sqliteMod?.DatabaseSync) {
+  try {
+    dbInstance = new sqliteMod.DatabaseSync(DB_PATH);
+  } catch (err1) {
+    try {
+      dbInstance = new sqliteMod.DatabaseSync(':memory:');
+    } catch (err2) {
+      console.warn('[SQLite] Failed to initialize in-memory SQLite:', err2.message);
+    }
+  }
+}
+
+export const db = dbInstance;
 
 // Initialize Tables
 export function initDatabase() {
-  db.exec(`
+  if (!db) {
+    console.warn('[SQLite] Skipping initDatabase, db instance unavailable');
+    return;
+  }
+  try {
+    db.exec(`
     CREATE TABLE IF NOT EXISTS cases (
       cnr TEXT PRIMARY KEY,
       case_number TEXT NOT NULL,
@@ -85,7 +109,10 @@ export function initDatabase() {
     );
   `);
 
-  seedInitialCases();
+    seedInitialCases();
+  } catch (err) {
+    console.warn('[SQLite] initDatabase error:', err.message);
+  }
 }
 
 const SEED_CASES = [
